@@ -1,1 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Telegram Affiliate Converter</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #081120;
+      color: #fff;
+      padding: 20px;
+    }
+    .wrap {
+      max-width: 700px;
+      margin: 40px auto;
+      background: #0d1728;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 20px;
+      padding: 24px;
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 34px;
+    }
+    p {
+      color: #b7c3d6;
+      line-height: 1.7;
+    }
+    input {
+      width: 100%;
+      padding: 16px;
+      border-radius: 12px;
+      border: 1px solid #24324a;
+      background: #09101d;
+      color: #fff;
+      font-size: 16px;
+      margin-top: 10px;
+      outline: none;
+    }
+    button {
+      width: 100%;
+      margin-top: 14px;
+      padding: 16px;
+      border: none;
+      border-radius: 12px;
+      background: #22b8d6;
+      color: #fff;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .status {
+      margin-top: 16px;
+      line-height: 1.6;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 16px;
+      border-radius: 14px;
+      background: #111d33;
+      border: 1px solid rgba(255,255,255,0.08);
+      display: none;
+    }
+    .result a {
+      color: #7fe7ff;
+      word-break: break-all;
+    }
+    .copy-btn {
+      margin-top: 12px;
+      background: #111827;
+    }
+    .error {
+      margin-top: 16px;
+      background: #ef4444;
+      color: #fff;
+      padding: 14px;
+      border-radius: 12px;
+      display: none;
+    }
+    .success {
+      margin-top: 16px;
+      background: #16a34a;
+      color: #fff;
+      padding: 14px;
+      border-radius: 12px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Affiliate Link Converter</h1>
+    <p>Paste a Flipkart or Amazon product link. The system will send it to your Telegram bot and return the affiliate link.</p>
 
+    <input id="productUrl" type="text" placeholder="Paste Flipkart or Amazon product URL" />
+    <button onclick="convertLink()">Convert Link</button>
+
+    <div id="status" class="status"></div>
+    <div id="errorBox" class="error"></div>
+    <div id="successBox" class="success"></div>
+
+    <div id="resultBox" class="result">
+      <div><strong>Affiliate Link:</strong></div>
+      <div style="margin-top:10px;">
+        <a id="affiliateLink" href="#" target="_blank"></a>
+      </div>
+      <button class="copy-btn" onclick="copyAffiliateLink()">Copy Link</button>
+    </div>
+  </div>
+
+  <script>
+    async function convertLink() {
+      const input = document.getElementById("productUrl");
+      const status = document.getElementById("status");
+      const errorBox = document.getElementById("errorBox");
+      const successBox = document.getElementById("successBox");
+      const resultBox = document.getElementById("resultBox");
+      const affiliateLinkEl = document.getElementById("affiliateLink");
+
+      const url = input.value.trim();
+
+      errorBox.style.display = "none";
+      successBox.style.display = "none";
+      resultBox.style.display = "none";
+      status.textContent = "";
+
+      if (!url) {
+        errorBox.textContent = "Please paste a product URL.";
+        errorBox.style.display = "block";
+        return;
+      }
+
+      try {
+        status.textContent = "Sending link to Telegram bot... Please wait.";
+
+        const res = await fetch("/api/convert", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ url })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || "Conversion failed");
+        }
+
+        affiliateLinkEl.textContent = data.affiliateLink;
+        affiliateLinkEl.href = data.affiliateLink;
+
+        successBox.textContent = "Affiliate link generated successfully.";
+        successBox.style.display = "block";
+        resultBox.style.display = "block";
+        status.textContent = "";
+      } catch (err) {
+        status.textContent = "";
+        errorBox.textContent = err.message;
+        errorBox.style.display = "block";
+      }
+    }
+
+    async function copyAffiliateLink() {
+      const text = document.getElementById("affiliateLink").textContent;
+      if (!text) return;
+
+      try {
+        await navigator.clipboard.writeText(text);
+        alert("Copied!");
+      } catch {
+        alert("Copy failed.");
+      }
+    }
+  </script>
+</body>
+</html>
