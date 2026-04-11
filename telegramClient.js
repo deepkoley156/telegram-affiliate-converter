@@ -1,4 +1,4 @@
-const { TelegramClient } = require("telegram");
+const { TelegramClient, Api } = require("telegram");
 const { StringSession } = require("telegram/sessions");
 const dotenv = require("dotenv");
 const config = require("./config");
@@ -48,17 +48,37 @@ async function initTelegramClient() {
   }
 }
 
+function normalizeUsername(value) {
+  return String(value || "").replace(/^@+/, "").trim();
+}
+
 async function resolveBotEntity() {
   if (botEntityCache) return botEntityCache;
 
   const tgClient = await initTelegramClient();
 
-  try {
-    botEntityCache = await tgClient.getEntity(config.BOT_USERNAME_FALLBACK);
-    return botEntityCache;
-  } catch (e) {
-    throw new Error("Could not find Telegram bot. Check BOT_USERNAME_FALLBACK in config.js");
+  const rawCandidates = [
+    config.BOT_USERNAME,
+    config.BOT_USERNAME_FALLBACK,
+    "ExtraPeBot"
+  ];
+
+  const candidates = [...new Set(rawCandidates.map(normalizeUsername).filter(Boolean))];
+
+  for (const username of candidates) {
+    try {
+      const resolved = await tgClient.invoke(
+        new Api.contacts.ResolveUsername({ username })
+      );
+
+      if (resolved?.users?.length) {
+        botEntityCache = resolved.users[0];
+        return botEntityCache;
+      }
+    } catch {}
   }
+
+  throw new Error("Could not resolve Telegram bot username. Make sure the bot username is correct.");
 }
 
 async function getLastBotMessageId(botEntity) {
