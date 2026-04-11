@@ -1,5 +1,3 @@
-const fs = require("fs");
-const path = require("path");
 const { TelegramClient } = require("telegram");
 const { StringSession } = require("telegram/sessions");
 const dotenv = require("dotenv");
@@ -7,22 +5,9 @@ const config = require("./config");
 
 dotenv.config();
 
-const sessionDir = path.join(__dirname, "session");
-const sessionFile = path.join(sessionDir, "telegram.session");
-
-if (!fs.existsSync(sessionDir)) {
-  fs.mkdirSync(sessionDir, { recursive: true });
-}
-
-function loadSessionString() {
-  if (fs.existsSync(sessionFile)) {
-    return fs.readFileSync(sessionFile, "utf8").trim();
-  }
-  return "";
-}
-
 const apiId = Number(process.env.API_ID);
 const apiHash = process.env.API_HASH;
+const sessionString = process.env.TELEGRAM_SESSION || "";
 
 if (!apiId || !apiHash) {
   throw new Error("Missing API_ID or API_HASH in environment");
@@ -42,22 +27,17 @@ async function initTelegramClient() {
   }
 
   initPromise = (async () => {
-    const savedSession = loadSessionString();
-
-    if (!savedSession) {
-      throw new Error(
-        "Telegram session not found. First login must be done locally, then upload the saved session file."
-      );
+    if (!sessionString) {
+      throw new Error("TELEGRAM_SESSION not found in environment");
     }
 
-    const stringSession = new StringSession(savedSession);
+    const stringSession = new StringSession(sessionString);
 
     client = new TelegramClient(stringSession, apiId, apiHash, {
       connectionRetries: 5
     });
 
     await client.connect();
-
     return client;
   })();
 
