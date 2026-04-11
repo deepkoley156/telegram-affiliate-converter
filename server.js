@@ -2,7 +2,7 @@ const path = require("path");
 const express = require("express");
 const dotenv = require("dotenv");
 const config = require("./config");
-const { sendLinkToBot, initTelegramClient } = require("./telegramClient");
+const { sendLinkToBot } = require("./telegramClient");
 const { extractAffiliateLink } = require("./linkParser");
 
 dotenv.config();
@@ -12,6 +12,8 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));
+
+let isConverting = false;
 
 function isValidHttpUrl(value) {
   try {
@@ -25,7 +27,9 @@ function isValidHttpUrl(value) {
 function isAllowedDomain(urlString) {
   try {
     const hostname = new URL(urlString).hostname.toLowerCase();
-    return config.ALLOWED_DOMAINS.some((domain) => hostname === domain || hostname.endsWith("." + domain));
+    return config.ALLOWED_DOMAINS.some(
+      (domain) => hostname === domain || hostname.endsWith("." + domain)
+    );
   } catch {
     return false;
   }
@@ -56,6 +60,15 @@ app.post("/api/convert", async (req, res) => {
       });
     }
 
+    if (isConverting) {
+      return res.status(429).json({
+        success: false,
+        error: "Another conversion is already running. Please wait a few seconds."
+      });
+    }
+
+    isConverting = true;
+
     const botReply = await sendLinkToBot(url);
     const affiliateLink = extractAffiliateLink(botReply);
 
@@ -74,25 +87,23 @@ app.post("/api/convert", async (req, res) => {
     });
   } catch (error) {
     console.error("Convert error:", error);
+
     return res.status(500).json({
       success: false,
       error: error.message || "Something went wrong"
     });
+  } finally {
+    isConverting = false;
   }
 });
 
-app.get("/api/health", async (req, res) => {
+app.get("/api/health", (req, res) => {
   res.json({
     success: true,
     message: "Server is running"
   });
 });
 
-app.listen(PORT, async () => {
+app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
-  try {
-    await initTelegramClient();
-  } catch (err) {
-    console.log("Telegram client will initialize on first request.");
-  }
 });
